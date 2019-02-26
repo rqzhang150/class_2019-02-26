@@ -1,0 +1,79 @@
+---
+title: "Enrollments"
+author: "Ruoqi Zhang"
+date: "2/26/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(gt)
+library(readxl)
+library(janitor)
+```
+
+```{r data_import, echo=FALSE}
+spring_2018_original <- read_excel("class_enrollment_summary_by_term_03.06.18.xlsx", skip = 3)
+spring_2018_clean <- spring_2018_original %>% 
+  clean_names() %>% 
+  filter(!is.na(course_name))
+
+spring_2019_original <- read_excel("class_enrollment_summary_by_term_2.26.19.xlsx", skip = 3)
+spring_2019_clean <- spring_2019_original %>% 
+  clean_names() %>% 
+  filter(!is.na(course_name))
+```
+
+# Enrollment Decrease in Spring 2019
+
+```{r enrollment_decrease, echo=FALSE}
+spring_2018_clean %>% 
+  left_join(spring_2019_clean, by = c("course_id"), 
+            suffix = c("_2018", "_2019")) %>% 
+  filter(course_department_2018 == course_department_2019,
+         u_grad_2018 > 5,
+         u_grad_2019 > 5) %>% 
+  mutate(enrollment_change = u_grad_2019 - u_grad_2018) %>% 
+  select(course_title_2019, course_name_2019, u_grad_2018, u_grad_2019, enrollment_change) %>% 
+  arrange(enrollment_change) %>% 
+  slice(1:10) %>% 
+  gt() %>% 
+  tab_header(
+    title = "Biggest Enrollment Decreases in Spring 2019"
+  ) %>% 
+  cols_label(
+    course_title_2019 = "Number",
+    course_name_2019 = "Name",
+    u_grad_2018 = "2018",
+    u_grad_2019 = "2019",
+    enrollment_change = "Change"
+  ) %>% 
+  tab_source_note(
+    source_note = "Data from the Harvard Registrar"
+  )
+```
+
+# Biggest New Class in Spring 2019
+
+```{r enrollment_biggest_new, echo=FALSE}
+spring_2019_clean %>% 
+  anti_join(spring_2018_clean, by = c("course_id")) %>% 
+  arrange(desc(u_grad)) %>% 
+  select(course_department, course_title, course_name, u_grad) %>% 
+  slice(1:10) %>% 
+  gt() %>% 
+  tab_header(
+    title = "Biggest New Classes in Spring 2019"
+  ) %>% 
+  cols_label(
+    course_department = "Department",
+    course_title = "Number",
+    course_name = "Name",
+    u_grad = "Enrollment"
+  ) %>% 
+  tab_source_note(
+    source_note = "Data from the Harvard Registrar"
+  )
+```
+
