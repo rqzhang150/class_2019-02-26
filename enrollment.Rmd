@@ -18,7 +18,11 @@ download.file("https://registrar.fas.harvard.edu/files/fas-registrar/files/class
               destfile = "2019_spring_enrollment.xlsx",
               mode = "wb")
 
-spring_2018_original <- read_excel("class_enrollment_summary_by_term_03.06.18.xlsx", skip = 3)
+download.file("https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_03.06.18.xlsx",
+              destfile = "2018_spring_enrollment.xlsx",
+              mode = "wb")
+
+spring_2018_original <- read_excel("2018_spring_enrollment.xlsx", skip = 3)
 spring_2018_clean <- spring_2018_original %>% 
   clean_names() %>% 
   filter(!is.na(course_name))
