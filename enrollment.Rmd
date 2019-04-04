@@ -11,6 +11,7 @@ library(tidyverse)
 library(gt)
 library(readxl)
 library(janitor)
+library(fs)
 ```
 
 ```{r data_import, echo=FALSE}
@@ -31,6 +32,9 @@ spring_2019_original <- read_excel("2019_spring_enrollment.xlsx", skip = 3)
 spring_2019_clean <- spring_2019_original %>% 
   clean_names() %>% 
   filter(!is.na(course_name))
+
+file_delete(c("2018_spring_enrollment.xlsx","2019_spring_enrollment.xlsx"))
+
 ```
 
 # Enrollment Decrease in Spring 2019
