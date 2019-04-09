@@ -1,0 +1,58 @@
+---
+title: "Employee Enrollment in Harvard FAS Courses"
+author: "Ruoqi Zhang"
+date: "4/8/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, warning = FALSE)
+library(tidyverse)
+library(gt)
+library(readxl)
+library(janitor)
+library(fs)
+library(purrr)
+```
+
+```{r data_fetch}
+
+filter_employee <- function(enrollment_df) {
+  enrollment_df %>% 
+    clean_names() %>% 
+    filter(employee != 0,
+           !is.na(course_title))
+}
+
+file_to_df <- function(table_url, term) {
+  
+  if (!dir.exists(file.path(getwd(), "enrollment_data"))) {
+    dir.create(file.path(getwd(), "enrollment_data"))
+  }
+  file_destination = paste0("enrollment_data/", term, ".xlsx")
+  download.file(url = table_url, destfile = file_destination, mode = "wb")
+  
+  if (term == "fall_2018") {
+    assign(term, read_excel(file_destination, skip = 2) %>% filter_employee(), envir = .GlobalEnv)
+  } else {
+    assign(term, read_excel(file_destination, skip = 3) %>% filter_employee(), envir = .GlobalEnv)
+  }
+}
+
+terms <- c("spring_2019", "fall_2018", "spring_2018", 
+           "fall_2017", "spring_2017", "fall_2016")
+
+sheet_urls <- c("https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_3.22.19.xlsx",
+                 "https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_10.24.18.xlsx",
+                 "https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_03.06.18.xlsx",
+                 "https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_10.20.17.xlsx",
+                 "http://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_2017_03_07_final_0.xlsx",
+                 "http://registrar.fas.harvard.edu/files/fas-registrar/files/copy_of_class_enrollment_summary_by_term_10.06.2016.xlsx")
+
+map2(sheet_urls, terms, file_to_df)
+
+fall_2016 %>% 
+  full_join(fall_2017, by = "course_id", suffix = c("_2016", "_2017"))
+
+```
+
