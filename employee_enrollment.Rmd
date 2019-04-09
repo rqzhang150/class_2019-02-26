@@ -16,7 +16,7 @@ library(purrr)
 library(stringr)
 ```
 
-```{r data_fetch}
+```{r data_fetch, results='hide'}
 
 # Filters Courses That Have Employees
 # 
