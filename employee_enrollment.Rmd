@@ -17,20 +17,67 @@ library(purrr)
 
 ```{r data_fetch}
 
+# Filters Courses That Have Employees
+# 
+# A function to process dataframes from different semesters. It cleans variable
+# names, and filters out the courses that have employee enrollments. It also
+# filters out rows that are not courses.
+# 
+# @param enrollment_df A dplyr tibble
+# @return A cleaned dplyr tibble with courses that have employee enrollment.
+
 filter_employee <- function(enrollment_df) {
   enrollment_df %>% 
     clean_names() %>% 
+    
+    # In this case, variable employee is the number of employees enrolled in the
+    # course. We are only interested in courses that have employee enrollment,
+    # that is, that have non-zero employee value.
+    
     filter(employee != 0,
            !is.na(course_title))
 }
 
+# Fetches Enrollment Data and Transform Into Tibble
+#
+# This function takes in two strings and creates tibble objects accordingly. It
+# is intended to take in Harvard Registrar's enrollment records and turn them
+# into corresponding tibbles.
+#
+# @param table_url A string. The url of enrollment files provided by Harvard
+#   Registrar.
+# @param term A string. Used to describe the semester of the enrollment file.
+#   Will also name the object created for the tibble.
+# @return A tibble named by parameter term, containing data from table_url.
+
 file_to_df <- function(table_url, term) {
+  
+  # We don't want all the downloaded files to be piled in the working directory.
+  # Therefore, we create a directory to store the downloaded excel files. We
+  # first examine whether the directory already exists. If not, we create a
+  # directory called enrollment_data/ under the working directory.
   
   if (!dir.exists(file.path(getwd(), "enrollment_data"))) {
     dir.create(file.path(getwd(), "enrollment_data"))
   }
+  
+  # This variable is used for the destfile parameter for download.file. 
+  
   file_destination = paste0("enrollment_data/", term, ".xlsx")
+  
+  # Download the enrollment data provided by Harvard Registrar.
+  
   download.file(url = table_url, destfile = file_destination, mode = "wb")
+  
+  # The enrollment data for Fall 2018 is stored differently than other years'.
+  # We treat them differently (skip different number of lines) by using
+  # conditional statement.
+  #
+  # For each semester, we want an individual tibble to store its data.
+  # Therefore, to dynamically name variables, we use the assign() function to
+  # assign the data to the name specified by parameter 'term'. To make the
+  # objects accessible outside the function body, we specify parameter envir as
+  # .GlobalEnv, thus making it accessible in the entire environment.
   
   if (term == "fall_2018") {
     assign(term, read_excel(file_destination, skip = 2) %>% filter_employee(), envir = .GlobalEnv)
@@ -39,8 +86,14 @@ file_to_df <- function(table_url, term) {
   }
 }
 
+# Employee enrollment data is only recorded in after 2016-17 school year. We
+# manually specify all the terms after that.
+
 terms <- c("spring_2019", "fall_2018", "spring_2018", 
            "fall_2017", "spring_2017", "fall_2016")
+
+# We specify the link to enrollment data that corresponds to the term specified
+# in variable 'terms'.
 
 sheet_urls <- c("https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_3.22.19.xlsx",
                  "https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_10.24.18.xlsx",
@@ -49,10 +102,11 @@ sheet_urls <- c("https://registrar.fas.harvard.edu/files/fas-registrar/files/cla
                  "http://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_2017_03_07_final_0.xlsx",
                  "http://registrar.fas.harvard.edu/files/fas-registrar/files/copy_of_class_enrollment_summary_by_term_10.06.2016.xlsx")
 
+# Using map2() from purrr, we run file_to_df once for every term-url
+# combination, thus generating a tibble for every semester's data.
+
 map2(sheet_urls, terms, file_to_df)
 
-fall_2016 %>% 
-  full_join(fall_2017, by = "course_id", suffix = c("_2016", "_2017"))
 
 ```
 
