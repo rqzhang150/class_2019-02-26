@@ -1,5 +1,5 @@
 ---
-title: "Employee Enrollment in Harvard FAS Courses"
+title: "Enrollment in Language Courses"
 author: "Ruoqi Zhang"
 date: "4/8/2019"
 output: html_document
@@ -18,27 +18,6 @@ library(stringr)
 
 ```{r data_fetch, results='hide'}
 
-# Filters Courses That Have Employees
-# 
-# A function to process dataframes from different semesters. It cleans variable
-# names, and filters out the courses that have employee enrollments. It also
-# filters out rows that are not courses.
-# 
-# @param enrollment_df A dplyr tibble.
-# @return A cleaned dplyr tibble with courses that have employee enrollment.
-
-filter_languages <- function(enrollment_df) {
-  enrollment_df %>% 
-    clean_names() %>% 
-    
-    # In this case, variable employee is the number of employees enrolled in the
-    # course. We are only interested in courses that have employee enrollment,
-    # that is, that have non-zero employee value.
-    
-    filter(!is.na(course_title),
-           str_detect(course_title, "ARABIC") | str_detect(course_title, "CHNSE") | str_detect(course_title, "SPANSH") | str_detect(course_title, "RUSS") | str_detect(course_title, "FRENCH"))
-}
-
 # Fetches Enrollment Data and Transform Into Tibble
 #
 # This function takes in two strings and creates tibble objects accordingly. It
@@ -53,6 +32,27 @@ filter_languages <- function(enrollment_df) {
 
 file_to_df <- function(table_url, term) {
   
+  # Filters Courses That Have Employees
+  # 
+  # A function to process dataframes from different semesters. It cleans variable
+  # names, and filters out the courses that have employee enrollments. It also
+  # filters out rows that are not courses.
+  # 
+  # @param enrollment_df A dplyr tibble.
+  # @return A cleaned dplyr tibble with courses that have employee enrollment.
+  
+  filter_languages <- function(enrollment_df) {
+    enrollment_df %>% 
+      clean_names() %>% 
+      
+      # In this case, variable employee is the number of employees enrolled in the
+      # course. We are only interested in courses that have employee enrollment,
+      # that is, that have non-zero employee value.
+      
+      filter(!is.na(course_title),
+             str_detect(course_title, "ARABIC") | str_detect(course_title, "CHNSE") | str_detect(course_title, "SPANSH") | str_detect(course_title, "RUSS") | str_detect(course_title, "FRENCH") | str_detect(course_title, "SPANSH"))
+  }
+
   # We don't want all the downloaded files to be piled in the working directory.
   # Therefore, we create a directory to store the downloaded excel files. We
   # first examine whether the directory already exists. If not, we create a
@@ -111,7 +111,7 @@ map2(sheet_urls, terms, file_to_df)
 
 ```
 
-```{r merge_data}
+```{r graph_creation}
 
 sum_language <- function(term) {
   eval(as.name(term)) %>% 
