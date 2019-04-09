@@ -50,6 +50,10 @@ file_to_df <- function(table_url, term) {
       # that is, that have non-zero employee value.
       
       filter(!is.na(course_title),
+             
+             # We choose these languages because they are the six official
+             # languages in the United Nations.
+             
              str_detect(course_title, "ARABIC") | str_detect(course_title, "CHNSE") | str_detect(course_title, "SPANSH") | str_detect(course_title, "RUSS") | str_detect(course_title, "FRENCH") | str_detect(course_title, "SPANSH"))
   }
 
@@ -113,12 +117,44 @@ map2(sheet_urls, terms, file_to_df)
 
 ```{r graph_creation}
 
+# Calculate the number of enrollees for each language in a term
+#
+# This function takes in the string description of a term and calls the
+# corresponding tibble containing the term's enrollment data. It then returns a
+# tibble that contains the number of enrollees for each language.
+#
+# @param term A string specifying the semester
+# @return A dplyr dataframe that contains the number of enrollees for each
+#   language in the specified term.
+
 sum_language <- function(term) {
+  
+  # We use a string input to specify the term because in the previous code, we
+  # already had a list that contains the terms that we are interested in. To
+  # call the corresponding tibble, we treat string object 'term' as a name, and
+  # evaluate it. This, in effect, would call the tibble that contains the
+  # enrollment data for that term.
+  
   eval(as.name(term)) %>% 
+    
+    # We are interested in the total enrollee in a specific language, regardless
+    # of levels. We observe the course_title variable, and found that each
+    # langugae has its unique course code + difficulty level (e.g. CHNSE Bb).
+    # Therefore, we create a new variable that contains the first component
+    # (e.g. CHNSE) of the course_title to describe the language of the course.
+    
     mutate(course_language = str_split_fixed(course_title, " ", 2)[,1]) %>% 
+    
+    # For each language, count the total enrollees.
+    
     group_by(course_language) %>% 
     summarize(num_enrollee = sum(total))
 }
+
+# We join the tibbles across years together by using full_join. Here, the suffix
+# are formatted to ensure convenience. The suffix's first 4 digits represent the
+# year of the semester, and the ensuing two letters represent the term (01
+# stands for Spring, 02 stands for Fall.)
 
 sum_language("fall_2016") %>%
   full_join(sum_language("spring_2017"), by = "course_language", 
@@ -131,16 +167,43 @@ sum_language("fall_2016") %>%
             suffix = c(".201801", ".201802")) %>% 
   full_join(sum_language("spring_2019"), by = "course_language", 
             suffix = c(".201802", ".201901")) %>% 
+  
+  # We replace all NA values as 0.
+  
   replace(is.na(.), 0) %>% 
+  
+  # To create ggplot graph, we need to gather all the columns. We first use
+  # gather function to achieve this, naming the term variable as 'term' and the
+  # number of enrollee as 'num_enrollee'.
+  
   gather(key = "term", value = "num_enrollee", num_enrollee.201602:num_enrollee.201901) %>% 
+  
+  # This, however, creates a problem because the strings in 'term' variable are
+  # in the format of num_enrollee.yearterm. We only need the descriptor for the
+  # year and the term, and do not need the num_enrollee suffix because it's
+  # already specified by the variable name. Therefore, we split the string and
+  # take the latter part describing the year and term of a row.
+  
   mutate(term = str_split_fixed(term, "enrollee.", 2)[,2]) %>% 
+  
+  # We refactor the 'term' variable, and specifies labels for each term for
+  # display in the plot.
+  
   mutate(term = factor(term, levels = c("201602", "201701", "201702", "201801", "201802", "201901"),
                        labels = c("Fall 2016", "Spring 2017", "Fall 2017", "Spring 2018", 
-                                  "Fall 2018", "Spring 2019"))) %>% 
+                                  "Fall 2018", "Spring 2019")),
+         course_language = factor(course_language, levels = c("ARABIC", "CHNSE", "FRENCH", "RUSS", "SPANSH"),
+                                  labels = c("Arabic", "Chinese", "French", "Russian", "Spanish"))) %>% 
   ggplot(aes(x = term, y = num_enrollee, color = course_language, group = course_language)) +
     geom_point() +
     geom_line() +
-    theme_minimal() 
+    theme_minimal() +
+    labs(x = NULL,
+         y = "Total Enrollees",
+         color = "Language",
+         title = "") +
+    scale_y_continuous(breaks = c(0, 200, 400, 600)) +
+    expand_limits(y = 0)
     
 
 
