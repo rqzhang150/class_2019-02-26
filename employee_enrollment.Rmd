@@ -13,6 +13,7 @@ library(readxl)
 library(janitor)
 library(fs)
 library(purrr)
+library(stringr)
 ```
 
 ```{r data_fetch}
@@ -23,10 +24,10 @@ library(purrr)
 # names, and filters out the courses that have employee enrollments. It also
 # filters out rows that are not courses.
 # 
-# @param enrollment_df A dplyr tibble
+# @param enrollment_df A dplyr tibble.
 # @return A cleaned dplyr tibble with courses that have employee enrollment.
 
-filter_employee <- function(enrollment_df) {
+filter_languages <- function(enrollment_df) {
   enrollment_df %>% 
     clean_names() %>% 
     
@@ -34,8 +35,8 @@ filter_employee <- function(enrollment_df) {
     # course. We are only interested in courses that have employee enrollment,
     # that is, that have non-zero employee value.
     
-    filter(employee != 0,
-           !is.na(course_title))
+    filter(!is.na(course_title),
+           str_detect(course_title, "ARABIC") | str_detect(course_title, "CHNSE") | str_detect(course_title, "SPANSH") | str_detect(course_title, "RUSS") | str_detect(course_title, "FRENCH"))
 }
 
 # Fetches Enrollment Data and Transform Into Tibble
@@ -80,9 +81,9 @@ file_to_df <- function(table_url, term) {
   # .GlobalEnv, thus making it accessible in the entire environment.
   
   if (term == "fall_2018") {
-    assign(term, read_excel(file_destination, skip = 2) %>% filter_employee(), envir = .GlobalEnv)
+    assign(term, read_excel(file_destination, skip = 2) %>% filter_languages(), envir = .GlobalEnv)
   } else {
-    assign(term, read_excel(file_destination, skip = 3) %>% filter_employee(), envir = .GlobalEnv)
+    assign(term, read_excel(file_destination, skip = 3) %>% filter_languages(), envir = .GlobalEnv)
   }
 }
 
@@ -106,6 +107,42 @@ sheet_urls <- c("https://registrar.fas.harvard.edu/files/fas-registrar/files/cla
 # combination, thus generating a tibble for every semester's data.
 
 map2(sheet_urls, terms, file_to_df)
+
+
+```
+
+```{r merge_data}
+
+sum_language <- function(term) {
+  eval(as.name(term)) %>% 
+    mutate(course_language = str_split_fixed(course_title, " ", 2)[,1]) %>% 
+    group_by(course_language) %>% 
+    summarize(num_enrollee = sum(total))
+}
+
+sum_language("fall_2016") %>%
+  full_join(sum_language("spring_2017"), by = "course_language", 
+            suffix = c(".201602", ".201701")) %>% 
+  full_join(sum_language("fall_2017"), by = "course_language", 
+            suffix = c(".201701", ".201702")) %>% 
+  full_join(sum_language("spring_2018"), by = "course_language", 
+            suffix = c(".201702", ".201801")) %>% 
+  full_join(sum_language("fall_2018"), by = "course_language", 
+            suffix = c(".201801", ".201802")) %>% 
+  full_join(sum_language("spring_2019"), by = "course_language", 
+            suffix = c(".201802", ".201901")) %>% 
+  replace(is.na(.), 0) %>% 
+  gather(key = "term", value = "num_enrollee", num_enrollee.201602:num_enrollee.201901) %>% 
+  mutate(term = str_split_fixed(term, "enrollee.", 2)[,2]) %>% 
+  mutate(term = factor(term, levels = c("201602", "201701", "201702", "201801", "201802", "201901"),
+                       labels = c("Fall 2016", "Spring 2017", "Fall 2017", "Spring 2018", 
+                                  "Fall 2018", "Spring 2019"))) %>% 
+  ggplot(aes(x = term, y = num_enrollee, color = course_language, group = course_language)) +
+    geom_point() +
+    geom_line() +
+    theme_minimal() 
+    
+
 
 
 ```
