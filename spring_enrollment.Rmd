@@ -1,5 +1,5 @@
 ---
-title: "Enrollments"
+title: "Harvard Enrollment Comparison Between 2018 and 2019 Spring"
 author: "Ruoqi Zhang"
 date: "2/26/2019"
 output: html_document
