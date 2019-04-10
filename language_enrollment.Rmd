@@ -1,5 +1,5 @@
 ---
-title: "Enrollment in Language Courses"
+title: "Harvard Enrollment in Language Courses"
 author: "Ruoqi Zhang"
 date: "4/8/2019"
 output: html_document
@@ -14,6 +14,7 @@ library(janitor)
 library(fs)
 library(purrr)
 library(stringr)
+library(ggrepel)
 ```
 
 ```{r data_fetch, results='hide'}
@@ -32,23 +33,18 @@ library(stringr)
 
 file_to_df <- function(table_url, term) {
   
-  # Filters Courses That Have Employees
+  # Filters Courses That Are Language Courses
   # 
   # A function to process dataframes from different semesters. It cleans variable
-  # names, and filters out the courses that have employee enrollments. It also
+  # names, and filters out the courses that are language courses It also
   # filters out rows that are not courses.
   # 
   # @param enrollment_df A dplyr tibble.
-  # @return A cleaned dplyr tibble with courses that have employee enrollment.
+  # @return A cleaned dplyr tibble with courses that are language courses
   
   filter_languages <- function(enrollment_df) {
     enrollment_df %>% 
       clean_names() %>% 
-      
-      # In this case, variable employee is the number of employees enrolled in the
-      # course. We are only interested in courses that have employee enrollment,
-      # that is, that have non-zero employee value.
-      
       filter(!is.na(course_title),
              
              # We choose these languages because they are the six official
@@ -77,7 +73,7 @@ file_to_df <- function(table_url, term) {
   # The enrollment data for Fall 2018 is stored differently than other years'.
   # We treat them differently (skip different number of lines) by using
   # conditional statement.
-  #
+
   # For each semester, we want an individual tibble to store its data.
   # Therefore, to dynamically name variables, we use the assign() function to
   # assign the data to the name specified by parameter 'term'. To make the
@@ -91,8 +87,8 @@ file_to_df <- function(table_url, term) {
   }
 }
 
-# Employee enrollment data is only recorded in after 2016-17 school year. We
-# manually specify all the terms after that.
+# FAS reports its enrollment data in a consistent manner after 2016-17 school
+# year. We manually specify all the terms after that.
 
 terms <- c("spring_2019", "fall_2018", "spring_2018", 
            "fall_2017", "spring_2017", "fall_2016")
@@ -115,7 +111,7 @@ map2(sheet_urls, terms, file_to_df)
 
 ```
 
-```{r graph_creation}
+```{r graph_creation, fig.height=5, fig.width=8, fig.align='center'}
 
 # Calculate the number of enrollees for each language in a term
 #
@@ -192,21 +188,74 @@ sum_language("fall_2016") %>%
   mutate(term = factor(term, levels = c("201602", "201701", "201702", "201801", "201802", "201901"),
                        labels = c("Fall 2016", "Spring 2017", "Fall 2017", "Spring 2018", 
                                   "Fall 2018", "Spring 2019")),
+         
+         # Refactor the 'course_language' variable to display a more
+         # human-readable name in the plot.
+         
          course_language = factor(course_language, levels = c("ARABIC", "CHNSE", "FRENCH", "RUSS", "SPANSH"),
-                                  labels = c("Arabic", "Chinese", "French", "Russian", "Spanish"))) %>% 
+                                  labels = c("Arabic", "Chinese", "French", "Russian", "Spanish"))) -> languages_df
+
+# Filter the language enrollment tibble to get, for each language, the term
+# during which that language has the largest enrollment.
+
+top_enrollment_term <- languages_df %>% 
+  group_by(course_language) %>% 
+  
+  # Use top_n function to get the entire row for each group's row with the
+  # largest num_enrollee.
+  
+  top_n(n = 1, wt = num_enrollee)
+
+languages_df %>% 
   ggplot(aes(x = term, y = num_enrollee, color = course_language, group = course_language)) +
-    geom_point() +
+  
+    # I am using geom_point and geom_line at the same time because I think
+    # visually this would better demonstrate the breaks in those lines,
+    # emphasizing the enrollment data is based on terms.
+  
+    geom_point(size = 1) +
     geom_line() +
+  
+    # We use geom_text_repel in the ggrepel package to label the term that has
+    # the largest enrollment number for each language. We set parse as TRUE so
+    # that it will evaluate the statement in the label parameter. A caveat is
+    # that geom_text_repel does not avoid geom_line, therefore, we used size,
+    # nudge_x/y to further adjust the labels position, so that they do not
+    # overlap with the lines.
+  
+    geom_text_repel(data = top_enrollment_term, 
+                    mapping = aes(x = term, y = num_enrollee, 
+                                  label = paste(course_language, num_enrollee, sep = ": ")),
+                    show.legend = FALSE, parse = TRUE, size = 3, nudge_x = -0.1, nudge_y = -60) +
+  
+    # I like theme_minimal()
+  
     theme_minimal() +
     labs(x = NULL,
          y = "Total Enrollees",
          color = "Language",
-         title = "") +
+         title = "Enrollment in Language Courses at Harvard University",
+         subtitle = "For U.N. Official Languages (excl. English)",
+         caption = "Numbers on the plot represent the number of enrollee in the year of the languages' highest \n\nIncludes enrollments from undergraduates, visiting undergraduates,\nnon-degree students, employees, and other students.\n\nSource: Harvard Registrar") +
     scale_y_continuous(breaks = c(0, 200, 400, 600)) +
-    expand_limits(y = 0)
-    
+  
+    # We want the y axis to start at 0 to create an accurate impression for the
+    # enrollment situation for Russian.
+  
+    expand_limits(y = 0) +
+  
+    # We use scale_color_brewer to specify a color scheme.
+  
+    scale_color_brewer(palette = "Dark2") -> enrollment_plot
 
+# Save the graph to graphs/ directory. Here, we use the dir_create function in fs package, which will create a directory if there is no existing one. Then, we use ggsave to save the plot.
 
+dir_create("graphs/")
+ggsave("graphs/language-enrollment.png", enrollment_plot, width = 8, height = 5)
+
+# Display the plot.
+
+enrollment_plot
 
 ```
 
